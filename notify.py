@@ -1,12 +1,13 @@
 """
 Notifications: Gmail email + Twilio SMS.
 
-Both channels fire on new jobs. Any channel whose .env vars are missing is
-silently skipped, so you can run email-only, SMS-only, or both.
+Supports multiple recipients via comma-separated .env values:
+  MAIL_TO=a@x.com,b@y.com
+  TWILIO_TO=+385111111111,+385222222222
 
-.env keys:
-  Email:  GMAIL_USER, GMAIL_APP_PASSWORD, MAIL_TO
-  SMS:    TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, TWILIO_TO
+Both channels fire on new jobs. Any channel whose .env vars are missing is
+silently skipped. Email and SMS are independent — one failing never blocks
+the other.
 """
 import os
 import smtplib
@@ -21,7 +22,7 @@ load_dotenv()
 # --- Email config ---
 GMAIL_USER = os.getenv("GMAIL_USER")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
-MAIL_TO = os.getenv("MAIL_TO")
+MAIL_TO = os.getenv("MAIL_TO", "")
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 
@@ -29,7 +30,12 @@ SMTP_PORT = 587
 TWILIO_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_FROM = os.getenv("TWILIO_FROM")
-TWILIO_TO = os.getenv("TWILIO_TO")
+TWILIO_TO = os.getenv("TWILIO_TO", "")
+
+
+def _split(value):
+    """Turn a comma-separated env string into a clean list."""
+    return [v.strip() for v in value.split(",") if v.strip()]
 
 
 def _format_email_body(jobs):
@@ -49,29 +55,29 @@ def _format_email_body(jobs):
 
 
 def _send_email(jobs):
-    if not all([GMAIL_USER, GMAIL_APP_PASSWORD, MAIL_TO]):
+    recipients = _split(MAIL_TO)
+    if not all([GMAIL_USER, GMAIL_APP_PASSWORD]) or not recipients:
         return "email: skipped (missing .env vars)"
     current_date = datetime.datetime.now().strftime("%d-%m-%Y")
-    subject = f"Mara Novi HZZ/Ljekarne SDZ Oglasi Pripravnik - {current_date}"
+    subject = f"Mara Novi HZZ/Ljekarne SDZ Oglasi Pripravnik -  {current_date}"
     msg = MIMEMultipart()
     msg["From"] = GMAIL_USER
-    msg["To"] = MAIL_TO
+    msg["To"] = ", ".join(recipients)        # all recipients in one email
     msg["Subject"] = subject
     msg.attach(MIMEText(_format_email_body(jobs), "plain", "utf-8"))
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-            server.sendmail(GMAIL_USER, [MAIL_TO], msg.as_string())
-        return f"email: sent to {MAIL_TO}"
+            server.sendmail(GMAIL_USER, recipients, msg.as_string())
+        return f"email: sent to {len(recipients)} recipient(s)"
     except Exception as e:
         return f"email: error {e}"
 
 
 def _format_sms_body(jobs):
-    # SMS is short; keep it tight. One line per job, title + location.
     parts = [f"{len(jobs)} novi pripravnik oglas(a):"]
-    for j in jobs[:5]:  # cap so we don't blow past a couple SMS segments
+    for j in jobs[:5]:
         loc = f" ({j.location})" if j.location else ""
         parts.append(f"- {j.title}{loc}")
     if len(jobs) > 5:
@@ -80,17 +86,21 @@ def _format_sms_body(jobs):
 
 
 def _send_sms(jobs):
-    if not all([TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM, TWILIO_TO]):
+    recipients = _split(TWILIO_TO)
+    if not all([TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM]) or not recipients:
         return "sms: skipped (missing .env vars)"
     try:
         from twilio.rest import Client
         client = Client(TWILIO_SID, TWILIO_TOKEN)
-        msg = client.messages.create(
-            body=_format_sms_body(jobs),
-            from_=TWILIO_FROM,
-            to=TWILIO_TO,
-        )
-        return f"sms: queued {msg.sid} ({msg.status})"
+        body = _format_sms_body(jobs)
+        results = []
+        for to in recipients:
+            try:
+                msg = client.messages.create(body=body, from_=TWILIO_FROM, to=to)
+                results.append(f"{to}:{msg.status}")
+            except Exception as e:
+                results.append(f"{to}:error {e}")
+        return "sms: " + ", ".join(results)
     except Exception as e:
         return f"sms: error {e}"
 
