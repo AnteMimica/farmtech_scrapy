@@ -59,7 +59,7 @@ def _send_email(jobs):
     if not all([GMAIL_USER, GMAIL_APP_PASSWORD]) or not recipients:
         return "email: skipped (missing .env vars)"
     current_date = datetime.datetime.now().strftime("%d-%m-%Y")
-    subject = f"Mara Novi HZZ/Ljekarne SDZ Oglasi Pripravnik -  {current_date}"
+    subject = f"Mara Novi HZZ/Ljekarne SDZ Pripravnik - {current_date}"
     msg = MIMEMultipart()
     msg["From"] = GMAIL_USER
     msg["To"] = ", ".join(recipients)        # all recipients in one email
@@ -75,14 +75,37 @@ def _send_email(jobs):
         return f"email: error {e}"
 
 
+def _ascii(s):
+    """Strip Croatian diacritics to plain ASCII for SMS (keeps it GSM-7, shorter)."""
+    table = str.maketrans({
+        "\u010d": "c", "\u0107": "c", "\u017e": "z", "\u0161": "s", "\u0111": "dj",
+        "\u010c": "C", "\u0106": "C", "\u017d": "Z", "\u0160": "S", "\u0110": "Dj",
+    })
+    return s.translate(table)
+
+
+def _abbrev_title(title, chars=3):
+    """First `chars` letters of each word: 'Farmaceutski tehnicar' -> 'Far teh'."""
+    words = _ascii(title).split()
+    return " ".join(w[:chars] for w in words if w)
+
+
+def _site_tag(site):
+    """Short source label for the SMS."""
+    return {"hzz": "HZZ", "ljekarnesdz": "LJK"}.get(site, site.upper()[:3])
+
+
 def _format_sms_body(jobs):
-    parts = [f"{len(jobs)} novi pripravnik oglas(a):"]
-    for j in jobs[:5]:
-        loc = f" ({j.location})" if j.location else ""
-        parts.append(f"- {j.title}{loc}")
-    if len(jobs) > 5:
-        parts.append(f"...i jo\u0161 {len(jobs) - 5}. Vidi email za detalje.")
-    return "\n".join(parts)
+    # Always-present prefix
+    parts = ["mara novi pripravnik:"]
+    for j in jobs:
+        tag = _site_tag(getattr(j, "site", ""))
+        short = _abbrev_title(j.title)
+        city = _ascii(j.location).strip()
+        entry = f"{tag} {short}" + (f" {city}" if city else "")
+        parts.append(entry)
+    # Join compactly; lists all ads (may span multiple SMS segments)
+    return " | ".join(parts)
 
 
 def _send_sms(jobs):
