@@ -4,9 +4,9 @@ Standalone email test — verifies Gmail SMTP works before touching the scraper.
 Run:  python test_email.py
 
 Reads credentials from a .env file in the same folder:
-  GMAIL_USER=testotp2802@gmail.com
+  GMAIL_USER=
   GMAIL_APP_PASSWORD=xxxxxxxxxxxxxxxx
-  MAIL_TO=amimic00@fesb.hr
+  MAIL_TO=
 """
 import os
 import smtplib
