@@ -20,7 +20,7 @@ from sites import hzz, ljekarne
 from store import filter_new
 from notify import notify
 
-KEYWORD = "pripravnik"          # matched case-insensitively
+KEYWORD = "JOUKHADAR"          # matched case-insensitively
 SCRAPERS = [hzz.scrape, ljekarne.scrape]   # both sites; matches merge into one email
 
 
