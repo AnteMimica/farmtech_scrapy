@@ -5,7 +5,7 @@ on:
     # Every 30 min between ~08:00–18:00 Zagreb time.
     # GitHub cron is UTC; Croatia is UTC+2 (summer) / UTC+1 (winter).
     # This runs :00 and :30 past each hour from 06–16 UTC ≈ 08–18 local (summer).
-    - cron: "0,30 6-16 * * *"
+    - cron: "0,30 6-16 * * 1-5"
   workflow_dispatch: {}        # lets you trigger a run manually from the Actions tab
 
 # Required so the job can push the updated seen.db back to the repo
