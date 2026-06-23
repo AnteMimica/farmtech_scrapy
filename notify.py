@@ -52,7 +52,7 @@ def _send_email(jobs):
     if not all([GMAIL_USER, GMAIL_APP_PASSWORD, MAIL_TO]):
         return "email: skipped (missing .env vars)"
     current_date = datetime.datetime.now().strftime("%d-%m-%Y")
-    subject = f"Vranjky Novi HZZ Oglasi - {current_date}"
+    subject = f"Mara Novi HZZ Oglasi - {current_date}"
     msg = MIMEMultipart()
     msg["From"] = GMAIL_USER
     msg["To"] = MAIL_TO
