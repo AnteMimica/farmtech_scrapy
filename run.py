@@ -16,12 +16,12 @@ import os
 import sys
 from playwright.sync_api import sync_playwright
 
-from sites import hzz
+from sites import hzz, ljekarne
 from store import filter_new
 from notify import notify
 
-KEYWORD = "pripravnik"          # matched case-insensitively
-SCRAPERS = [hzz.scrape]         # ljekarne.scrape goes here later
+KEYWORD = "automatike"          # matched case-insensitively
+SCRAPERS = [hzz.scrape, ljekarne.scrape]   # both sites; matches merge into one email
 
 
 def matches(job) -> bool:
