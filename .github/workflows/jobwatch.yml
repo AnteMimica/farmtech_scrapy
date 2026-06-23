@@ -2,17 +2,13 @@ name: JobWatch
 
 on:
   schedule:
-    # Every 30 min between ~08:00–18:00 Zagreb time.
-    # GitHub cron is UTC; Croatia is UTC+2 (summer) / UTC+1 (winter).
-    # This runs :00 and :30 past each hour from 06–16 UTC ≈ 08–18 local (summer).
+    # Every 30 min, Mon–Fri, 06:00–16:30 UTC (≈ 08:00–18:30 Zagreb summer / 07:00–17:30 winter)
     - cron: "0,30 6-16 * * 1-5"
-  workflow_dispatch: {}        # lets you trigger a run manually from the Actions tab
+  workflow_dispatch: {}
 
-# Required so the job can push the updated seen.db back to the repo
 permissions:
   contents: write
 
-# Prevent overlapping runs from racing on seen.db
 concurrency:
   group: jobwatch
   cancel-in-progress: false
@@ -32,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install playwright python-dotenv
+          pip install playwright python-dotenv twilio
           python -m playwright install --with-deps chromium
 
       - name: Run scraper
@@ -40,6 +36,10 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM: ${{ secrets.TWILIO_FROM }}
+          TWILIO_TO: ${{ secrets.TWILIO_TO }}
           HEADLESS: "1"
         run: python run.py
 
@@ -47,7 +47,6 @@ jobs:
         run: |
           git config user.name  "jobwatch-bot"
           git config user.email "actions@github.com"
-          # Only commit if seen.db actually changed
           if ! git diff --quiet -- seen.db 2>/dev/null || [ -n "$(git status --porcelain seen.db)" ]; then
             git add seen.db
             git commit -m "Update seen.db [skip ci]" || echo "nothing to commit"
